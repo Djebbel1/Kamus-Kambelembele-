@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'database_helper.dart';
 void main() {
   runApp(const KamusKambelembeleApp());
 }
@@ -30,6 +30,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  @override
+  void initState() {
+    super.initState();
+    loadFavorites();
+  }
   final TextEditingController searchController = TextEditingController();
 
   String sourceLanguage = 'Kyenye Kasenga';
@@ -38,6 +43,7 @@ class _HomePageState extends State<HomePage> {
   String result = '';
   String sourceExample = '';
   String targetExample = '';
+  int? currentEntryId;
 
   final List<String> languages = [
     'Kyenye Kasenga',
@@ -45,25 +51,46 @@ class _HomePageState extends State<HomePage> {
     'Swahili',
     'English',
   ];
+  List<Map<String, dynamic>> favorites = [];
 
-  void searchWord() {
-    final word = searchController.text.trim();
+  Future<void> searchWord() async {
+  final word = searchController.text.trim();
 
-    if (word.isEmpty) {
-      setState(() {
-        result = '';
-        sourceExample = '';
-        targetExample = '';
-      });
-      return;
-    }
-
+  if (word.isEmpty) {
     setState(() {
-      result = 'Résultat de démonstration pour « $word »';
-      sourceExample = 'Exemple dans $sourceLanguage';
-      targetExample = 'Exemple traduit en $targetLanguage';
+      result = '';
+      sourceExample = '';
+      targetExample = '';
+      currentEntryId = null;
     });
+    return;
   }
+
+  final entries = await DatabaseHelper.instance.searchEntries(
+  word,
+  sourceLanguage,
+  targetLanguage,
+);
+
+  if (entries.isEmpty) {
+    setState(() {
+      result = 'Aucun résultat trouvé pour « $word »';
+      sourceExample = '';
+      targetExample = '';
+      currentEntryId = null;
+    });
+    return;
+  }
+
+  final entry = entries.first;
+
+  setState(() {
+    currentEntryId = entry['id'] as int?;
+    result = entry['translation']?.toString() ?? '';
+    sourceExample = entry['source_example']?.toString() ?? '';
+    targetExample = entry['target_example']?.toString() ?? '';
+  });
+}
 
   void invertLanguages() {
     if (sourceLanguage == targetLanguage) return;
@@ -74,7 +101,44 @@ class _HomePageState extends State<HomePage> {
       targetLanguage = temporary;
     });
   }
+Future<void> addTestWord() async {
+  await DatabaseHelper.instance.insertEntry({
+    'source_language': 'Kyenye Kasenga',
+    'source_word': 'test',
+    'target_language': 'Français',
+    'translation': 'mot de démonstration',
+    'source_example': 'Exemple de démonstration',
+    'target_example': 'Exemple traduit de démonstration',
+    'audio_path': null,
+  });
+ }
+ Future<void> addCurrentFavorite() async {
+  if (currentEntryId == null) return;
 
+  await DatabaseHelper.instance.addFavorite({
+    'dictionary_id': currentEntryId,
+    'source_language': sourceLanguage,
+    'source_word': searchController.text.trim(),
+    'target_language': targetLanguage,
+    'translation': result,
+    'source_example': sourceExample,
+    'target_example': targetExample,
+  });
+  if (!mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Ajouté aux favoris'),
+   ),
+ );
+ loadFavorites();
+}
+Future<void> loadFavorites() async {
+  final data = await DatabaseHelper.instance.getFavorites();
+
+  setState(() {
+    favorites = data;
+  });
+}
   void clearSearch() {
     searchController.clear();
 
@@ -82,6 +146,7 @@ class _HomePageState extends State<HomePage> {
       result = '';
       sourceExample = '';
       targetExample = '';
+      currentEntryId = null;
     });
   }
 
@@ -164,9 +229,12 @@ class _HomePageState extends State<HomePage> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-
-                              const SizedBox(height: 16),
-
+                          const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: addTestWord,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Ajouter mot de test'),
+                              ),
                               Row(
                                 children: [
                                   Expanded(
@@ -352,7 +420,7 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                     IconButton(
                                       tooltip: 'Ajouter aux favoris',
-                                      onPressed: () {},
+                                      onPressed: addCurrentFavorite,
                                       icon: const Icon(Icons.star_border),
                                     ),
                                     IconButton(
@@ -378,7 +446,7 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: () {},
+                              onPressed: loadFavorites,
                               icon: const Icon(Icons.star_border),
                               label: const Text('Favoris'),
                             ),
@@ -393,7 +461,35 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ],
                       ),
-
+                      if (favorites.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Mes favoris',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ...favorites.map(
+                          (favorite) => Card(
+                            child: ListTile(
+                              leading: const Icon(Icons.star),
+                              title: Text(
+                                '${favorite['source_word']?.toString() ?? ''} → ${favorite['translation']?.toString() ?? ''}',
+                              ),
+                              subtitle: Text(favorite['translation']?.toString() ?? ''),
+                              trailing: IconButton(
+  icon: const Icon(Icons.delete_outline),
+  onPressed: () async {
+    await DatabaseHelper.instance.deleteFavorite(favorite['id'] as int);
+    await loadFavorites();
+  },
+),
+                           ),
+                         ),
+                        ),
+                      ],
                       const SizedBox(height: 30),
 
                       const Text(
