@@ -162,7 +162,13 @@ Future<void> loadFavorites() async {
         actions: [
           IconButton(
             tooltip: 'Historique',
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Historique bientôt disponible'),
+               ),
+             );
+            },
             icon: const Icon(Icons.history),
           ),
           IconButton(
