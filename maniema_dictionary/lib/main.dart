@@ -174,7 +174,13 @@ Future<void> loadFavorites() async {
           ),
           IconButton(
             tooltip: 'Favoris',
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Favoris bientôt disponible'),
+               ),
+             );
+            },
             icon: const Icon(Icons.star_border),
           ),
         ],
