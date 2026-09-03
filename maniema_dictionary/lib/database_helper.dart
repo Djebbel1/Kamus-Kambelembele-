@@ -73,7 +73,8 @@ class DatabaseHelper {
         target_language TEXT NOT NULL,
         translation TEXT NOT NULL,
         source_example TEXT,
-        target_example TEXT
+        target_example TEXT,
+        UNIQUE(dictionary_id, source_language, target_language)
       )
     ''');
   }
@@ -87,14 +88,33 @@ class DatabaseHelper {
     );
   }
   Future<int> addFavorite(Map<String, dynamic> favorite) async {
-    final db = await instance.database;
+  final db = await instance.database;
 
-    return await db.insert(
-      'favorites',
-      favorite,
-      conflictAlgorithm: ConflictAlgorithm.replace,
+  final existing = await db.query(
+    'favorites',
+    where: '''
+      dictionary_id = ?
+      AND source_language = ?
+      AND target_language = ?
+    ''',
+    whereArgs: [
+      favorite['dictionary_id'],
+      favorite['source_language'],
+      favorite['target_language'],
+    ],
+    limit: 1,
+  );
+
+  if (existing.isNotEmpty) {
+    return existing.first['id'] as int;
+  }
+
+  return await db.insert(
+    'favorites',
+    favorite,
   );
 }
+
   Future<List<Map<String, dynamic>>> searchEntries(
   String word,
   String sourceLanguage,
