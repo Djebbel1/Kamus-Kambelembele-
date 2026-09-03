@@ -114,6 +114,7 @@ Future<void> addTestWord() async {
  }
  Future<void> addCurrentFavorite() async {
   if (currentEntryId == null) return;
+  if (result.isEmpty) return;
 
   await DatabaseHelper.instance.addFavorite({
     'dictionary_id': currentEntryId,
