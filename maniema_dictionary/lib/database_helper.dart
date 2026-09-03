@@ -124,7 +124,7 @@ class DatabaseHelper {
 
   return await db.query(
     'dictionary',
-    where: '''
+     where: '''
       (
         source_language = ?
         AND target_language = ?
